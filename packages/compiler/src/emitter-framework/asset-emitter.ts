@@ -208,6 +208,7 @@ export function createAssetEmitter<T, TOptions extends object>(
         incomingReferenceContext = context.referenceContext ?? null;
         incomingReferenceContextTarget = incomingReferenceContext ? target : null;
 
+        console.log('----target.kind', target.kind)
         let result;
         if (target.kind === "ModelProperty") {
           result = invokeTypeEmitter("modelPropertyReference", target);
@@ -215,13 +216,16 @@ export function createAssetEmitter<T, TOptions extends object>(
           result = invokeTypeEmitter("enumMemberReference", target);
         }
 
+        console.log('----result', result)
         if (result) {
           incomingReferenceContext = oldIncomingReferenceContext;
           incomingReferenceContextTarget = oldIncomingReferenceContextTarget;
           return result;
         }
 
+        console.log('----tar', target)
         const entity = this.emitType(target);
+        console.log('----entityx', entity)
 
         incomingReferenceContext = oldIncomingReferenceContext;
         incomingReferenceContextTarget = oldIncomingReferenceContextTarget;
@@ -339,6 +343,9 @@ export function createAssetEmitter<T, TOptions extends object>(
       const declName =
         isDeclaration(type) && type.kind !== "Namespace" ? typeEmitter.declarationName(type) : null;
       const key = typeEmitterKey(type);
+      console.log('----declName', declName)
+      console.log('----key', key)
+
       let args: any[];
       switch (key) {
         case "scalarDeclaration":

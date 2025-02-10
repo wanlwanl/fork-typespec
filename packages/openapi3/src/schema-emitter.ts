@@ -180,6 +180,8 @@ export class OpenAPI3SchemaEmitterBase<
     if (model.baseModel) {
       schema.set("allOf", Builders.array([this.emitter.emitTypeReference(model.baseModel)]));
     }
+    console.log('----modelDeclaration.model.allof', model)
+    console.log( '----modelDeclaration.model.allof--sechema', schema)
 
     const baseName = getOpenAPITypeName(program, model, this.#typeNameOptions());
     const isMultipart = this.getContentType().startsWith("multipart/");
@@ -313,6 +315,7 @@ export class OpenAPI3SchemaEmitterBase<
     const visibility = this.emitter.getContext().visibility;
     const contentType = this.getContentType();
 
+    console.log('----modelProperties.model', model)
     for (const prop of model.properties.values()) {
       if (isNeverType(prop.type)) {
         // If the property has a type of 'never', don't include it in the schema
@@ -324,6 +327,7 @@ export class OpenAPI3SchemaEmitterBase<
         continue;
       }
       const result = this.emitter.emitModelProperty(prop);
+      console.log('----result', result)
       const encodedName = resolveEncodedName(program, prop, contentType);
       props.set(encodedName, result);
     }
@@ -348,6 +352,7 @@ export class OpenAPI3SchemaEmitterBase<
   }
 
   modelPropertyLiteral(prop: ModelProperty): EmitterOutput<object> {
+    console.log('----modelPropertyLiteral.prop', prop)
     const program = this.emitter.getProgram();
     const isMultipart = this.getContentType().startsWith("multipart/");
     if (isMultipart) {
@@ -372,6 +377,7 @@ export class OpenAPI3SchemaEmitterBase<
           : {},
     });
 
+    console.log('----refSchema', refSchema)
     if (refSchema.kind !== "code") {
       reportDiagnostic(program, {
         code: "invalid-model-property",
@@ -384,10 +390,12 @@ export class OpenAPI3SchemaEmitterBase<
     }
 
     const isRef = refSchema.value instanceof Placeholder || "$ref" in refSchema.value;
+    console.log('----isRef', isRef)
 
-    const schema = this.applyEncoding(prop, refSchema.value as any);
+      const schema = this.applyEncoding(prop, refSchema.value as any);
 
     // Apply decorators on the property to the type's schema
+      console.log('----schema1', schema)
     const additionalProps: Partial<Schema> = this.applyConstraints(
       prop,
       {} as Schema,
@@ -396,6 +404,7 @@ export class OpenAPI3SchemaEmitterBase<
     if (prop.defaultValue) {
       additionalProps.default = getDefaultValue(program, prop.defaultValue, prop);
     }
+    console.log('----schema2', schema)
 
     if (isReadonlyProperty(program, prop)) {
       additionalProps.readOnly = true;
@@ -406,11 +415,14 @@ export class OpenAPI3SchemaEmitterBase<
 
     if (schema && isRef && !(prop.type.kind === "Model" && isArrayModelType(program, prop.type))) {
       if (Object.keys(additionalProps).length === 0) {
+        console.log('----schema without addtional prop', schema);
+
         return schema;
       } else {
         if (additionalProps.xml?.attribute) {
           return additionalProps;
         } else {
+          console.log('----schema with addtional prop', schema);
           return {
             allOf: [schema],
             ...additionalProps,
@@ -418,12 +430,15 @@ export class OpenAPI3SchemaEmitterBase<
         }
       }
     } else {
+      console.log('----else')
       if (getOneOf(program, prop) && schema.anyOf) {
         schema.oneOf = schema.anyOf;
         delete schema.anyOf;
       }
 
       const merged = new ObjectBuilder(schema);
+      console.log('----schema', schema)
+      console.log('----merged', merged)
       for (const [key, value] of Object.entries(additionalProps)) {
         merged.set(key, value);
       }
@@ -566,6 +581,7 @@ export class OpenAPI3SchemaEmitterBase<
   scalarDeclaration(scalar: Scalar, name: string): EmitterOutput<Schema> {
     const isStd = isStdType(this.emitter.getProgram(), scalar);
     const schema = this.#getSchemaForScalar(scalar);
+    console.log ('----sclar schema', schema)
     const baseName = getOpenAPITypeName(this.emitter.getProgram(), scalar, this.#typeNameOptions());
 
     // Don't create a declaration for std types
@@ -732,6 +748,7 @@ export class OpenAPI3SchemaEmitterBase<
       name + (shouldAddSuffix ? getVisibilitySuffix(visibility, Visibility.Read) : "");
 
     const decl = this.emitter.result.declaration(fullName, schema);
+    console.log('----decl', decl)
     checkDuplicateTypeName(
       this.emitter.getProgram(),
       type,

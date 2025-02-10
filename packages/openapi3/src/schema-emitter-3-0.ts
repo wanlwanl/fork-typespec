@@ -185,6 +185,7 @@ export class OpenAPI3SchemaEmitter extends OpenAPI3SchemaEmitterBase<OpenAPI3Sch
     ): ObjectBuilder<OpenAPI3Schema> => {
       // we can just return the single schema member after applying nullable
       const schema = schemaMember.schema;
+      console.log('----union shcema', schema);
       const type = schemaMember.type;
       const additionalProps: Partial<OpenAPI3Schema> = mergeUnionWideConstraints
         ? this.applyConstraints(union, {})
@@ -194,6 +195,7 @@ export class OpenAPI3SchemaEmitter extends OpenAPI3SchemaEmitterBase<OpenAPI3Sch
         additionalProps.nullable = true;
       }
 
+      console.log('----addiprop',additionalProps)
       if (Object.keys(additionalProps).length === 0) {
         return new ObjectBuilder(schema);
       } else {
@@ -201,16 +203,27 @@ export class OpenAPI3SchemaEmitter extends OpenAPI3SchemaEmitterBase<OpenAPI3Sch
           (schema instanceof Placeholder || "$ref" in schema) &&
           !(type && shouldInline(program, type))
         ) {
-          if (type && (type.kind === "Model" || type.kind === "Scalar")) {
+          if (type && (type.kind === "Model")) {
+            console.log(`---add allof1`)
+            // TODO: handle here
             return new ObjectBuilder({
               type: "object",
               allOf: Builders.array([schema]),
               ...additionalProps,
             });
+          } else if (type && type.kind === "Scalar") {
+            console.log(`---add fix 1`)
+            return new ObjectBuilder({
+              type: "object",
+              anyof: [schema],
+              ...additionalProps,
+            });
           } else {
+            console.log(`---add allof2`)
             return new ObjectBuilder({ allOf: Builders.array([schema]), ...additionalProps });
           }
         } else {
+            console.log(`---add merge`)
           const merged = new ObjectBuilder<OpenAPI3Schema>(schema);
           for (const [key, value] of Object.entries(additionalProps)) {
             merged.set(key, value);
