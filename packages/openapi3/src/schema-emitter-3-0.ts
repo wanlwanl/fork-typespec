@@ -4,11 +4,13 @@ import {
   getExamples,
   getMaxValueExclusive,
   getMinValueExclusive,
+  intrinsicScalarNames,
   IntrinsicType,
   isNullType,
   Model,
   ModelProperty,
   Scalar,
+  ScalarStatementNode,
   serializeValueAsJson,
   Type,
   Union,
@@ -197,6 +199,7 @@ export class OpenAPI3SchemaEmitter extends OpenAPI3SchemaEmitterBase<OpenAPI3Sch
 
       console.log('----addiprop',additionalProps)
       if (Object.keys(additionalProps).length === 0) {
+        console.log('----no addiprop, return schema', schema)
         return new ObjectBuilder(schema);
       } else {
         if (
@@ -212,9 +215,11 @@ export class OpenAPI3SchemaEmitter extends OpenAPI3SchemaEmitterBase<OpenAPI3Sch
               ...additionalProps,
             });
           } else if (type && type.kind === "Scalar") {
-            console.log(`---add fix 1`)
+            console.log(`---add fix 1`, 'schema', schema)
+            console.log(`---add fix 1`, 'additionalProp', additionalProps)
+            console.log(`---add fix 1`, 'type', schemaMember.type)
+            
             return new ObjectBuilder({
-              type: "object",
               anyof: [schema],
               ...additionalProps,
             });
@@ -257,15 +262,48 @@ export class OpenAPI3SchemaEmitter extends OpenAPI3SchemaEmitterBase<OpenAPI3Sch
     }
 
     if (schemaMembers.length === 1) {
+      console.log("---- schemaMembers.length === 1")
       return wrapWithObjectBuilder(schemaMembers[0], { mergeUnionWideConstraints: true });
     }
 
     const isMerge = checkMerge(schemaMembers);
+
+    console.log("---- schemaMembers.length > 1")
+    // TODO: remove dup 
+
+
+    const isNullable = isMerge && nullable;
+    let  allScalar = true;
+    const baseScalar = new Set<Type>();
+    
+    for (const t of schemaMembers) {
+      if (t.type?.kind !== "Scalar") allScalar = false;
+    }
+
     const schema: OpenAPI3Schema = {
-      [ofType]: schemaMembers.map((m) =>
-        wrapWithObjectBuilder(m, { mergeUnionWideConstraints: isMerge }),
+      [ofType]: schemaMembers.map((m) => {
+        const type = m.type;
+        if (type?.kind !== "Scalar") return;
+        let s : Scalar | undefined = type
+        if (s) {
+          while (s) {
+            console.log('------current scalar --', s, intrinsicScalarNames.includes(s.kind))
+            s = s.baseScalar;
+          }
+        } 
+
+        const schema = wrapWithObjectBuilder(m, { mergeUnionWideConstraints: isMerge })
+        if (schema) {
+
+        }
+        return schema
+      }
       ),
     };
+
+    
+
+    console.log("---- multi schema", schema)
 
     if (!isMerge && nullable) {
       schema.nullable = true;
@@ -274,6 +312,11 @@ export class OpenAPI3SchemaEmitter extends OpenAPI3SchemaEmitterBase<OpenAPI3Sch
     this.applyDiscriminator(union, schema);
 
     return this.applyConstraints(union, schema);
+  
+  
+    function removeDuplicatedScalar() {
+
+    }
   }
 
   intrinsic(intrinsic: IntrinsicType, name: string): EmitterOutput<object> {
